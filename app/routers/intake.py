@@ -1,17 +1,34 @@
 import io
 import json
-from typing import List
+import base64
+from typing import List, Optional
 from fastapi import APIRouter, HTTPException, Depends, UploadFile, File, Form
 from sqlalchemy.orm import Session
 from pypdf import PdfReader
 from google.genai import types
 
 from app.database import get_db
-from app.models import DBUser, DBIntakeSession
+from app.models import DBUser, DBIntakeSession, DBPrescriptionDocument
 from app.schemas import TextIntakeRequest
 from app.gemini_service import compile_patient_history, generate_robust
 
 router = APIRouter(prefix="/api", tags=["Intake & Sessions"])
+
+def get_guest_user(db: Session) -> DBUser:
+    user = db.query(DBUser).filter(DBUser.username == "guest").first()
+    if user:
+        return user
+
+    user = DBUser(
+        username="guest",
+        password_hash="disabled",
+        full_name="Guest Patient",
+        role="guest",
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return user
 
 @router.post("/intake/text")
 def process_text_intake(req: TextIntakeRequest, db: Session = Depends(get_db)):
@@ -26,8 +43,11 @@ def process_text_intake(req: TextIntakeRequest, db: Session = Depends(get_db)):
         f"Integrate this input with past records and output in target language: {req.target_language}."
     )
 
-    response = generate_robust(prompt, target_language=req.target_language)
-    data = json.loads(response.text)
+    try:
+        response = generate_robust(prompt, target_language=req.target_language)
+        data = json.loads(response.text)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
 
     session_entry = DBIntakeSession(
         user_id=user.id,
@@ -52,23 +72,29 @@ def process_text_intake(req: TextIntakeRequest, db: Session = Depends(get_db)):
 
 @router.post("/intake/documents")
 async def process_document_scans(
-    user_id: int = Form(...),
+    user_id: Optional[int] = Form(None),
     target_language: str = Form("English"),
     files: List[UploadFile] = File(...),
     db: Session = Depends(get_db)
 ):
-    user = db.query(DBUser).filter(DBUser.id == user_id).first()
+    user = db.query(DBUser).filter(DBUser.id == user_id).first() if user_id else get_guest_user(db)
     if not user:
         raise HTTPException(status_code=404, detail="User ID not found")
 
     prior_history = compile_patient_history(user.id, db)
     multimodal_parts = []
     file_names = []
+    uploaded_documents = []
 
     for f in files:
         file_names.append(f.filename)
         file_bytes = await f.read()
         mime = f.content_type or "image/png"
+        uploaded_documents.append({
+            "file_name": f.filename or "document",
+            "mime_type": mime,
+            "file_data": base64.b64encode(file_bytes).decode("ascii"),
+        })
 
         if "pdf" in mime or f.filename.endswith(".pdf"):
             try:
@@ -89,8 +115,11 @@ async def process_document_scans(
     )
     multimodal_parts.append(prompt)
 
-    response = generate_robust(multimodal_parts, target_language=target_language)
-    data = json.loads(response.text)
+    try:
+        response = generate_robust(multimodal_parts, target_language=target_language)
+        data = json.loads(response.text)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
 
     session_entry = DBIntakeSession(
         user_id=user.id,
@@ -105,6 +134,14 @@ async def process_document_scans(
     db.commit()
     db.refresh(session_entry)
 
+    for document in uploaded_documents:
+        db.add(DBPrescriptionDocument(
+            user_id=user.id,
+            session_id=session_entry.id,
+            **document,
+        ))
+    db.commit()
+
     return {
         "session_id": session_entry.id,
         "patient": user.full_name,
@@ -113,6 +150,55 @@ async def process_document_scans(
         "cumulative_structured_data": data,
         "concise_doctor_summary": session_entry.concise_doctor_summary
     }
+
+@router.get("/prescriptions/{user_id}")
+def get_prescriptions(user_id: int, db: Session = Depends(get_db)):
+    user = db.query(DBUser).filter(DBUser.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User ID not found")
+
+    documents = (
+        db.query(DBPrescriptionDocument)
+        .filter(DBPrescriptionDocument.user_id == user_id)
+        .order_by(DBPrescriptionDocument.created_at.desc())
+        .all()
+    )
+    return [
+        {
+            "id": document.id,
+            "fileName": document.file_name,
+            "mimeType": document.mime_type,
+            "base64Data": document.file_data,
+            "uploadedAt": document.created_at,
+            "sessionId": document.session_id,
+        }
+        for document in documents
+    ]
+
+@router.get("/prescriptions")
+def get_all_prescriptions(db: Session = Depends(get_db)):
+    documents = db.query(DBPrescriptionDocument).order_by(DBPrescriptionDocument.created_at.desc()).all()
+    return [
+        {
+            "id": document.id,
+            "fileName": document.file_name,
+            "mimeType": document.mime_type,
+            "base64Data": document.file_data,
+            "uploadedAt": document.created_at,
+            "sessionId": document.session_id,
+        }
+        for document in documents
+    ]
+
+@router.delete("/prescriptions/{prescription_id}")
+def delete_prescription(prescription_id: int, db: Session = Depends(get_db)):
+    document = db.query(DBPrescriptionDocument).filter(DBPrescriptionDocument.id == prescription_id).first()
+    if not document:
+        raise HTTPException(status_code=404, detail="Prescription not found")
+
+    db.delete(document)
+    db.commit()
+    return {"message": "Prescription deleted successfully"}
 
 @router.post("/intake/audio")
 async def process_audio_intake(
@@ -137,8 +223,11 @@ async def process_audio_intake(
         f"and return the combined clinical record and doctor summary translated into {target_language}."
     )
 
-    response = generate_robust([audio_part, prompt], target_language=target_language)
-    data = json.loads(response.text)
+    try:
+        response = generate_robust([audio_part, prompt], target_language=target_language)
+        data = json.loads(response.text)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
 
     session_entry = DBIntakeSession(
         user_id=user.id,

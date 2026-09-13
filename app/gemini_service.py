@@ -1,17 +1,30 @@
 import os
 import time
+from pathlib import Path
+
+from dotenv import load_dotenv
 from sqlalchemy.orm import Session
 from google import genai
 from google.genai import types
 from app.models import DBIntakeSession
 
-# Load primary and secondary API keys from environment
-GEMINI_API_KEYS = [
-    os.getenv("GEMINI_API_KEY", ""),
-    os.getenv("GEMINI_BACKUP_KEY_1", ""),
-    os.getenv("GEMINI_BACKUP_KEY_2", "")
-]
-valid_keys = [k for k in GEMINI_API_KEYS if k.strip()]
+load_dotenv(dotenv_path=Path(__file__).resolve().parents[1] / ".env")
+
+
+def get_available_api_keys() -> list[str]:
+    """Returns all valid Gemini API keys from env or .env, including Google-compatible aliases."""
+    keys = []
+    for env_name in (
+        "GEMINI_API_KEY",
+        "GOOGLE_API_KEY",
+        "GEMINI_BACKUP_KEY_1",
+        "GEMINI_BACKUP_KEY_2",
+    ):
+        value = os.getenv(env_name, "")
+        if value and value.strip():
+            keys.append(value.strip())
+    return keys
+
 
 # Model cascade hierarchy (tries latest first, then falls back)
 CANDIDATE_MODELS = [
@@ -21,11 +34,14 @@ CANDIDATE_MODELS = [
     "gemini-1.5-pro",
 ]
 
+
 def get_gemini_client(key_index: int = 0) -> genai.Client:
     """Returns a Gemini Client using key rotation across available tokens."""
+    valid_keys = get_available_api_keys()
     if not valid_keys:
-        # Defaults to default environment resolution if no explicit array keys
-        return genai.Client()
+        raise RuntimeError(
+            "Missing Gemini API key. Add GEMINI_API_KEY or GOOGLE_API_KEY to your environment or .env file."
+        )
     selected_key = valid_keys[key_index % len(valid_keys)]
     return genai.Client(api_key=selected_key)
 
@@ -49,7 +65,8 @@ Return STRICT JSON matching this schema:
   "allergies": ["list", "of", "allergies", "in {target_language}"],
   "medications_supplements": ["list", "of", "medications", "with", "dosages", "in {target_language}"],
   "vital_signs_mentioned": ["list", "of", "vital", "signs"],
-  "concise_doctor_summary": "Exactly two sentences summarizing the overall clinical status for the physician in {target_language}."
+  "concise_doctor_summary": "Exactly two sentences summarizing the overall clinical status for the physician in {target_language}.",
+  "confidence_score": "A numeric confidence score from 0 to 100 indicating how confidently the prescription was read and summarized."
 }}
 Do not wrap output in markdown fences (no ```json). Output raw JSON only.
 """
@@ -59,6 +76,12 @@ def generate_robust(contents, target_language: str = "English", max_attempts: in
     Executes content generation by rotating through both API keys and candidate models
     to prevent quota bottlenecks, model deprecation issues, or transient downtime.
     """
+    valid_keys = get_available_api_keys()
+    if not valid_keys:
+        raise RuntimeError(
+            "Missing Gemini API key. Add GEMINI_API_KEY or GOOGLE_API_KEY to your environment or .env file."
+        )
+
     last_error = None
     system_prompt = build_system_instruction(target_language)
 
@@ -81,7 +104,9 @@ def generate_robust(contents, target_language: str = "English", max_attempts: in
                 time.sleep(0.5)
                 continue  # Try next key / attempt
 
-    raise RuntimeError(f"All model endpoints and keys failed. Last error: {last_error}")
+    raise RuntimeError(
+        f"All model endpoints and keys failed. Last error: {last_error or 'No usable Gemini API key was configured.'}"
+    )
 
 def compile_patient_history(user_id: int, db: Session) -> str:
     """Fetches and aggregates all prior intake records for a cumulative clinical prompt."""

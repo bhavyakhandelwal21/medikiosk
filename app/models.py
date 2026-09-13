@@ -24,3 +24,14 @@ class DBIntakeSession(Base):
     extracted_data_json = Column(Text)
     concise_doctor_summary = Column(Text)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+class DBPrescriptionDocument(Base):
+    __tablename__ = "prescription_documents"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, nullable=False, index=True)
+    session_id = Column(Integer, nullable=True, index=True)
+    file_name = Column(String(255), nullable=False)
+    mime_type = Column(String(100), nullable=False)
+    file_data = Column(Text, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
