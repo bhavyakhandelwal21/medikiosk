@@ -15,8 +15,8 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=[origin.strip() for origin in os.getenv("FRONTEND_ORIGINS", "http://localhost:3000").split(",") if origin.strip()],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -28,6 +28,10 @@ app.include_router(ocr.router)
 @app.get("/")
 def health_check():
     return {"status": "active", "service": "MediKiosk Multilingual AI API v3.0"}
+
+@app.get("/api/health", tags=["System"])
+def api_health_check():
+    return {"status": "ok", "service": "medikiosk-backend"}
 
 if __name__ == "__main__":
     import uvicorn

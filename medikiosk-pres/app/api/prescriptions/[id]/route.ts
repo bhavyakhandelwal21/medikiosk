@@ -5,10 +5,13 @@ const backendUrl = process.env.BACKEND_URL ?? "http://localhost:8000";
 export async function DELETE(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
+    const authorization = _request.headers.get("authorization");
+    if (!authorization) return NextResponse.json({ detail: "Please sign in before deleting prescriptions." }, { status: 401 });
     const response = await fetch(`${backendUrl}/api/prescriptions/${id}`, {
       method: "DELETE",
       headers: {
         "Content-Type": "application/json",
+        Authorization: authorization,
       },
     });
 

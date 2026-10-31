@@ -4,6 +4,7 @@ from pydantic import BaseModel, field_validator
 class RegisterRequest(BaseModel):
     username: str
     password: str
+    full_name: Optional[str] = None
 
     @field_validator("username")
     def validate_username(cls, v: str) -> str:

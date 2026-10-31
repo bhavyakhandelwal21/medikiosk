@@ -21,17 +21,17 @@ def get_available_api_keys() -> list[str]:
         "GEMINI_BACKUP_KEY_2",
     ):
         value = os.getenv(env_name, "")
-        if value and value.strip():
-            keys.append(value.strip())
+        normalized = value.strip().strip('"').strip("'")
+        if normalized and normalized.lower() not in {"your_api_key_here", "changeme"}:
+            keys.append(normalized)
     return keys
 
 
-# Model cascade hierarchy (tries latest first, then falls back)
+# Model cascade hierarchy (tries supported models first, then falls back)
 CANDIDATE_MODELS = [
     "gemini-3.6-flash",
-    "gemini-2.5-flash",
-    "gemini-1.5-flash",
-    "gemini-1.5-pro",
+    "gemini-3.5-flash",
+    "gemini-3.1-flash-lite",
 ]
 
 

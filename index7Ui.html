@@ -1,0 +1,1401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MediKiosk</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Plus Jakarta Sans', sans-serif; }
+    :root {
+      --primary-green: #92B780;
+      --primary-green-hover: #7fa86c;
+      --primary-green-light: #f3f8f1;
+      --primary-blue: #A1C3DE;
+      --primary-blue-hover: #8cb5d5;
+      --primary-blue-light: #f2f7fb;
+    }
+    .btn-green { background-color: #92B780; color: #ffffff; }
+    .btn-green:hover { background-color: #7fa86c; }
+    .btn-blue { background-color: #A1C3DE; color: #ffffff; }
+    .btn-blue:hover { background-color: #8cb5d5; }
+    .bg-green-soft { background-color: #f3f8f1; }
+    .bg-blue-soft { background-color: #f2f7fb; }
+    .border-green-theme { border-color: #92B780; }
+    .border-blue-theme { border-color: #A1C3DE; }
+    .text-green-theme { color: #7fa86c; }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col justify-between">
+
+  <!-- Top Global Navigation Bar -->
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-50 px-4 py-3 sm:px-8 flex items-center justify-between shadow-sm">
+    <div class="flex items-center gap-2 cursor-pointer" onclick="app.handleBrandClick()">
+      <div class="w-9 h-9 rounded-xl btn-green flex items-center justify-center text-white font-bold text-lg shadow-sm">
+        +
+      </div>
+      <span class="text-xl font-extrabold tracking-tight text-slate-900">MediKiosk</span>
+    </div>
+
+    <!-- Right Controls: Audio TTS, Language & Dynamic Logout -->
+    <div class="flex items-center gap-2 sm:gap-3">
+      
+      <!-- Text-to-Speech Button -->
+      <button id="ttsButton" onclick="app.toggleSpeech()" title="Read Page Aloud" class="bg-slate-100 hover:bg-green-soft hover:text-green-theme border border-slate-200 text-slate-700 px-3 py-1.5 rounded-xl text-xs sm:text-sm font-semibold flex items-center gap-1.5 transition">
+        <span id="ttsIcon">🔊</span>
+        <span id="ttsLabel" class="hidden sm:inline">Listen</span>
+      </button>
+
+      <!-- Language Dropdown -->
+      <div class="relative flex items-center gap-1.5">
+        <span id="langWordLabel" class="text-xs font-semibold text-slate-500 hidden sm:inline">Language:</span>
+        <button id="langSelectorBtn" type="button" class="bg-blue-soft border border-blue-theme/60 text-slate-700 px-3 py-1.5 rounded-xl text-xs sm:text-sm font-semibold flex items-center gap-1.5 hover:bg-blue-100/50 transition">
+          <span>🌐</span>
+          <span id="currentLangLabel">English</span>
+          <span class="text-[10px] text-slate-500">▼</span>
+        </button>
+        <div id="langDropdown" class="hidden absolute right-0 mt-2 top-full w-36 bg-white border border-slate-200 rounded-xl shadow-lg py-1 z-50">
+          <button onclick="app.setLanguage('en')" class="w-full text-left px-4 py-2 text-xs sm:text-sm hover:bg-green-soft hover:text-green-theme font-medium">English</button>
+          <button onclick="app.setLanguage('hi')" class="w-full text-left px-4 py-2 text-xs sm:text-sm hover:bg-green-soft hover:text-green-theme font-medium">हिंदी (Hindi)</button>
+          <button onclick="app.setLanguage('bn')" class="w-full text-left px-4 py-2 text-xs sm:text-sm hover:bg-green-soft hover:text-green-theme font-medium">বাংলা (Bengali)</button>
+          <button onclick="app.setLanguage('ta')" class="w-full text-left px-4 py-2 text-xs sm:text-sm hover:bg-green-soft hover:text-green-theme font-medium">தமிழ் (Tamil)</button>
+        </div>
+      </div>
+
+      <button id="logoutBtn" onclick="app.handleSignOut()" class="hidden text-xs sm:text-sm font-semibold text-rose-600 hover:bg-rose-50 px-3 py-1.5 rounded-xl border border-rose-200 transition">
+        Logout
+      </button>
+    </div>
+  </header>
+
+  <!-- Main View Container -->
+  <main class="flex-1 max-w-5xl w-full mx-auto p-4 sm:p-6 flex flex-col justify-center" id="appMount"></main>
+
+  <!-- Reusable Feature Placeholder Modal -->
+  <div id="featureModal" class="hidden fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-md w-full p-6 shadow-xl border border-slate-100 text-center">
+      <div id="modalFeatureIcon" class="w-14 h-14 rounded-2xl bg-blue-soft text-2xl flex items-center justify-center mx-auto mb-3">
+        📄
+      </div>
+      <h3 id="modalFeatureTitle" class="text-base font-bold text-slate-900">Module Integration</h3>
+      <p id="modalFeatureDesc" class="text-xs text-slate-500 mt-2 leading-relaxed">
+        Ready for external file link or code integration.
+      </p>
+      <div class="mt-5 flex gap-2">
+        <button onclick="app.closeFeatureModal()" class="w-full py-2.5 btn-green text-white font-semibold rounded-xl text-xs transition">
+          Return to Dashboard
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Reusable ABHA Modal -->
+  <div id="abhaModal" class="hidden fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-sm w-full p-6 shadow-xl border border-slate-100 text-center">
+      <div class="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center text-2xl mx-auto mb-3">⏳</div>
+      <h3 id="modalAbhaTitle" class="text-base font-bold text-slate-900">ABHA Integration Coming Soon</h3>
+      <p id="modalAbhaDesc" class="text-xs text-slate-500 mt-2">ABHA-based authentication is planned for a future version of MediKiosk.</p>
+      <button onclick="app.closeAbhaModal()" id="modalBtnGotIt" class="mt-5 w-full py-2.5 btn-green font-medium rounded-xl text-xs transition">
+        Got It
+      </button>
+    </div>
+  </div>
+
+  <!-- Reusable Add/Edit Case Modal -->
+  <div id="caseModal" class="hidden fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-md w-full p-6 shadow-xl border border-slate-100">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+        <h3 id="caseModalHeading" class="text-base font-bold text-slate-900">Add Health Case</h3>
+        <button onclick="app.closeCaseModal()" class="text-slate-400 hover:text-slate-600 text-lg font-bold">✕</button>
+      </div>
+
+      <form id="caseForm" onsubmit="app.handleSaveCase(event)" class="mt-4 space-y-4">
+        <input type="hidden" id="caseFormId" value="" />
+        <input type="hidden" id="caseFormPresetKey" value="" />
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">Quick Select Common Organ</label>
+          <select id="casePresetSelect" onchange="app.handlePresetChange(this.value)" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-[#92B780] focus:outline-none bg-white">
+            <option value="">-- Choose or write custom --</option>
+            <option value="eyes">Eyes (आँखें / চোখ / கண்கள்)</option>
+            <option value="stomach">Stomach (पेट / পেট / வயிறு)</option>
+            <option value="head">Head (सिर / মাথা / தலை)</option>
+            <option value="leg">Leg (टाँग / পা / கால்)</option>
+            <option value="hand">Hand / Arm (हाथ / হাত / கை)</option>
+            <option value="heart">Heart / Chest (दिल / হৃদয় / இதயம்)</option>
+            <option value="skin">Skin / Dermatology (त्वचा / ত্বক / தோல்)</option>
+            <option value="teeth">Teeth / Dental (दांत / দাঁত / பல்)</option>
+          </select>
+        </div>
+
+        <div class="grid grid-cols-4 gap-2">
+          <div class="col-span-1">
+            <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">Icon</label>
+            <input type="text" id="caseFormIcon" maxlength="2" required value="🩺" class="w-full text-center text-xl py-1.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#92B780] focus:outline-none" />
+          </div>
+          <div class="col-span-3">
+            <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">Case / Organ Name</label>
+            <input type="text" id="caseFormName" required placeholder="e.g. Leg, Dermatology" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-[#92B780] focus:outline-none" />
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">Short Description / Symptoms</label>
+          <input type="text" id="caseFormDesc" required placeholder="e.g. Joint pain, swelling" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-[#92B780] focus:outline-none" />
+        </div>
+
+        <div class="flex gap-2 pt-2">
+          <button type="button" onclick="app.closeCaseModal()" class="flex-1 py-2.5 border border-slate-200 hover:bg-slate-50 text-slate-700 font-semibold rounded-xl text-xs transition">
+            Cancel
+          </button>
+          <button type="submit" class="flex-1 py-2.5 btn-green text-white font-semibold rounded-xl text-xs shadow-sm transition">
+            Save Case
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- OCR Fullscreen View Modal -->
+  <div id="ocrViewModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-2xl w-full p-6 shadow-2xl border border-slate-100 flex flex-col max-h-[90vh]">
+      
+      <!-- Top Bar with "Main Dashboard" Back Button -->
+      <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+        <div class="flex items-center gap-2">
+          <div class="w-9 h-9 rounded-xl bg-blue-soft text-blue-600 flex items-center justify-center text-lg">📄</div>
+          <div>
+            <h3 class="text-base font-bold text-slate-900">MediKiosk OCR Scanner</h3>
+            <p id="ocrCaseBadge" class="text-[11px] text-slate-400 font-medium">Prescription Extraction</p>
+          </div>
+        </div>
+        <button onclick="app.closeOcrFeature()" class="flex items-center gap-1 text-xs font-bold text-slate-700 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-3.5 py-2 rounded-xl transition">
+          ← Main Dashboard
+        </button>
+      </div>
+
+      <!-- Upload / Extraction Area -->
+      <div class="flex-1 overflow-y-auto py-5 space-y-4">
+        <div onclick="document.getElementById('ocrInputFile').click()" class="border-2 border-dashed border-slate-300 hover:border-[#92B780] hover:bg-green-soft/20 rounded-2xl p-8 text-center cursor-pointer transition">
+          <input type="file" id="ocrInputFile" accept="image/*,.pdf" class="hidden" onchange="app.processOcrFile(event)" />
+          <div class="text-3xl mb-2">📤</div>
+          <p class="text-sm font-bold text-slate-700">Click to upload prescription or lab report</p>
+          <p class="text-xs text-slate-400 mt-1">Supports PNG, JPG, JPEG, and PDF files</p>
+        </div>
+
+        <div id="ocrStatusIndicator" class="hidden p-3 bg-blue-soft text-slate-700 rounded-xl text-xs font-semibold text-center"></div>
+
+        <div id="ocrResultContainer" class="hidden space-y-2">
+          <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider">Extracted Prescription Data</label>
+          <pre id="ocrResultText" class="p-4 bg-slate-50 border border-slate-200 rounded-2xl text-xs text-slate-800 font-mono overflow-x-auto whitespace-pre-wrap leading-relaxed max-h-60"></pre>
+        </div>
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="pt-3 border-t border-slate-100 flex justify-end">
+        <button onclick="app.closeOcrFeature()" class="px-5 py-2.5 btn-green text-white font-semibold rounded-xl text-xs shadow-sm transition">
+          Return to Dashboard
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Global Footer -->
+  <footer class="py-4 border-t border-slate-200 text-center text-xs text-slate-400 font-semibold">
+    MediKiosk
+  </footer>
+
+  <!-- Script Logic -->
+  <script>
+    const translations = {
+      en: {
+        langCode: "en-IN",
+        langWord: "Language:",
+        langName: "English",
+        listenText: "Listen",
+        stopText: "Stop",
+        patientLabel: "Patient:",
+        tagline: "Your health journey, all in one place.",
+        btnCreateAccount: "Create Account",
+        btnSignIn: "Sign In",
+        orText: "OR",
+        createAccountTitle: "Create Your Account",
+        fullName: "Full Name",
+        username: "Username",
+        password: "Password",
+        confirmPassword: "Confirm Password",
+        age: "Age",
+        gender: "Gender",
+        selectGender: "Select Gender",
+        genderMale: "Male",
+        genderFemale: "Female",
+        genderOther: "Other",
+        genderPreferNot: "Prefer not to say",
+        alreadyHaveAccount: "Already have an account?",
+        continueAbha: "Continue with ABHA",
+        welcomeBackTitle: "Welcome Back!",
+        dontHaveAccount: "Don't have an account?",
+        modalAbhaTitle: "ABHA Integration Coming Soon",
+        modalAbhaMsg: "ABHA-based authentication is planned for a future version of MediKiosk.",
+        btnGotIt: "Got It",
+        dashboardHeading: "What symptoms are you experiencing?",
+        dashboardSub: "Select an organ dossier below or add a new health case to manage records.",
+        addNewCase: "+ Add New Case",
+        btnSignOut: "Logout",
+        btnDashboard: "Dashboard →",
+        logTodayBtn: "LOG TODAY'S SYMPTOMS",
+        backToCases: "← Other Health Cases",
+        // Hub items
+        hubOcrTitle: "OCR Records",
+        hubOcrDesc: "Scan prescriptions & labs reprts",
+        hubCalTitle: "Symptom Calendar",
+        hubCalDesc: "Timeline & journal notes",
+        hubAiTitle: "AI Chatbot",
+        hubAiDesc: "Interactive AI helper",
+        hubNotesTitle: "Doctor's Notes",
+        hubNotesDesc: "Real-time doctor notes",
+        hubRemindTitle: "Reminders",
+        hubRemindDesc: "Medicines & doctor visits",
+        hubProfileTitle: "Profile",
+        hubProfileDesc: "Personal history",
+        // Preset Organs
+        organEyes: "Eyes",
+        organEyesDesc: "Vision, pain, redness",
+        organStomach: "Stomach",
+        organStomachDesc: "Digestive, ache, cramps",
+        organHead: "Head",
+        organHeadDesc: "Headache, dizziness, ache",
+        organLeg: "Leg",
+        organLegDesc: "Joint pain, sprain, swelling",
+        organHand: "Hand / Arm",
+        organHandDesc: "Numbness, wrist pain, ache",
+        organHeart: "Heart / Chest",
+        organHeartDesc: "Chest discomfort, palpitation",
+        organSkin: "Skin",
+        organSkinDesc: "Rash, itching, allergy",
+        organTeeth: "Dental",
+        organTeethDesc: "Toothache, sensitivity"
+      },
+      hi: {
+        langCode: "hi-IN",
+        langWord: "भाषा:",
+        langName: "हिंदी",
+        listenText: "सुनें",
+        stopText: "रोकें",
+        patientLabel: "मरीज़:",
+        tagline: "आपकी स्वास्थ्य यात्रा, एक ही स्थान पर।",
+        btnCreateAccount: "खाता बनाएं",
+        btnSignIn: "साइन इन करें",
+        orText: "या",
+        createAccountTitle: "अपना खाता बनाएं",
+        fullName: "पूरा नाम",
+        username: "उपयोगकर्ता नाम (Username)",
+        password: "पासवर्ड",
+        confirmPassword: "पासवर्ड की पुष्टि करें",
+        age: "उम्र",
+        gender: "लिंग",
+        selectGender: "लिंग चुनें",
+        genderMale: "पुरुष",
+        genderFemale: "महिला",
+        genderOther: "अन्य",
+        genderPreferNot: "बताना नहीं चाहते",
+        alreadyHaveAccount: "क्या आपके पास पहले से खाता है?",
+        continueAbha: "ABHA के साथ जारी रखें",
+        welcomeBackTitle: "वापसी पर स्वागत है!",
+        dontHaveAccount: "क्या आपके पास खाता नहीं है?",
+        modalAbhaTitle: "ABHA एकीकरण जल्द आ रहा है",
+        modalAbhaMsg: "MediKiosk के आगामी संस्करण के लिए ABHA प्रमाणीकरण योजनाबद्ध है।",
+        btnGotIt: "समझ गया",
+        dashboardHeading: "आपको क्या समस्या महसूस हो रही है?",
+        dashboardSub: "जांच शुरू करने के लिए अपना स्वास्थ्य केस चुनें या नया केस जोड़ें।",
+        addNewCase: "+ नया केस जोड़ें",
+        btnSignOut: "लॉगआउट",
+        btnDashboard: "डैशबोर्ड →",
+        logTodayBtn: "आज के लक्षण दर्ज करें",
+        backToCases: "← अन्य स्वास्थ्य केस",
+        // Hub items
+        hubOcrTitle: "OCR मेडिकल रिकॉर्ड",
+        hubOcrDesc: "पर्चे और लैब रिपोर्ट स्कैन करें",
+        hubCalTitle: "लक्षण कैलेंडर",
+        hubCalDesc: "टाइमलाइन और दैनिक नोट्स",
+        hubAiTitle: "AI चैटबॉट",
+        hubAiDesc: "संवादात्मक AI सहायक",
+        hubNotesTitle: "डॉक्टर के पर्चे",
+        hubNotesDesc: "रीयल-टाइम डॉक्टर नोट्स",
+        hubRemindTitle: "दवा रिमाइंडर",
+        hubRemindDesc: "दवाइयाँ और डॉक्टर अपॉइंटमेंट",
+        hubProfileTitle: "केस प्रोफ़ाइल",
+        hubProfileDesc: "व्यक्तिगत इतिहास",
+        // Preset Organs
+        organEyes: "आँखें",
+        organEyesDesc: "दृष्टि, दर्द, लालिमा",
+        organStomach: "पेट",
+        organStomachDesc: "पाचन, मरोड़, गैस",
+        organHead: "सिर",
+        organHeadDesc: "सिरदर्द, चक्कर, तनाव",
+        organLeg: "टाँग",
+        organLegDesc: "जोड़ों का दर्द, मोच, सूजन",
+        organHand: "हाथ",
+        organHandDesc: "सुन्नपन, कलाई का दर्द",
+        organHeart: "दिल / छाती",
+        organHeartDesc: "छाती में खिंचाव, घबराहट",
+        organSkin: "त्वचा",
+        organSkinDesc: "खुजली, लाल चकत्ते, एलर्जी",
+        organTeeth: "दांत / डेंटल",
+        organTeethDesc: "दांत दर्द, संवेदनशीलता"
+      },
+      bn: {
+        langCode: "bn-IN",
+        langWord: "ভাষা:",
+        langName: "বাংলা",
+        listenText: "শুনুন",
+        stopText: "থামান",
+        patientLabel: "রোগী:",
+        tagline: "আপনার স্বাস্থ্য যাত্রা, এক জায়গায়।",
+        btnCreateAccount: "অ্যাকাউন্ট তৈরি করুন",
+        btnSignIn: "সাইন ইন করুন",
+        orText: "অথবা",
+        createAccountTitle: "আপনার অ্যাকাউন্ট তৈরি করুন",
+        fullName: "সম্পূর্ণ নাম",
+        username: "ইউজারনেম",
+        password: "পাসওয়ার্ড",
+        confirmPassword: "পাসওয়ার্ড নিশ্চিত করুন",
+        age: "বয়স",
+        gender: "লিঙ্গ",
+        selectGender: "লিঙ্গ নির্বাচন করুন",
+        genderMale: "পুরুষ",
+        genderFemale: "মহিলা",
+        genderOther: "অন্যান্য",
+        genderPreferNot: "বলতে অনিচ্ছুক",
+        alreadyHaveAccount: "ইতিমধ্যে একটি অ্যাকাউন্ট আছে?",
+        continueAbha: "ABHA দিয়ে এগিয়ে যান",
+        welcomeBackTitle: "স্বাগতম!",
+        dontHaveAccount: "অ্যাকাউন্ট নেই?",
+        modalAbhaTitle: "ABHA ইন্টিগ্রেশন শীঘ্রই আসছে",
+        modalAbhaMsg: "MediKiosk-এর ভবিষ্যৎ সংস্করণের জন্য ABHA প্রমাণীকরণ পরিকল্পিত।",
+        btnGotIt: "বুঝেছি",
+        dashboardHeading: "আপনার কী সমস্যা হচ্ছে?",
+        dashboardSub: "শুরু করতে স্বাস্থ্য কেস নির্বাচন করুন অথবা নতুন কেস যোগ করুন।",
+        addNewCase: "+ নতুন কেস যুক্ত করুন",
+        btnSignOut: "লগআউট",
+        btnDashboard: "ড্যাশবোর্ড →",
+        logTodayBtn: "আজকের লক্ষণ রেকর্ড করুন",
+        backToCases: "← অন্যান্য কেস",
+        // Hub items
+        hubOcrTitle: "OCR রেকর্ড",
+        hubOcrDesc: "প্রেসক্রিপশন ও ল্যাব রিপোর্ট স্ক্যান",
+        hubCalTitle: "লক্ষণ ক্যালেন্ডার",
+        hubCalDesc: "সময়রেখা ও দৈনিক নোট",
+        hubAiTitle: "AI চ্যাটবট",
+        hubAiDesc: "ইন্টারেক্টিভ এআই সহায়ক",
+        hubNotesTitle: "ডাক্তারের নোট",
+        hubNotesDesc: "রিয়েল-টাইম ডাক্তার নোট",
+        hubRemindTitle: "রিমাইন্ডার",
+        hubRemindDesc: "ওষুধ ও ডাক্তারের সাক্ষাৎ",
+        hubProfileTitle: "কেস প্রোফাইল",
+        hubProfileDesc: "ব্যক্তিগত ইতিহাস",
+        // Preset Organs
+        organEyes: "চোখ",
+        organEyesDesc: "দৃষ্টি সমস্যা, ব্যথা, লালভাব",
+        organStomach: "পেট",
+        organStomachDesc: "হজম, পেটব্যথা, গ্যাস",
+        organHead: "মাথা",
+        organHeadDesc: "মাথাব্যথা, মাথা ঘোরা",
+        organLeg: "পা",
+        organLegDesc: "হাঁটুর ব্যথা, মচকানো",
+        organHand: "হাত",
+        organHandDesc: "কবজির ব্যথা, অবশ ভাব",
+        organHeart: "হৃদয় / বুক",
+        organHeartDesc: "বুকে চাপ, অস্বস্তি",
+        organSkin: "ত্বক",
+        organSkinDesc: "চুলকানি, এলার্জি",
+        organTeeth: "দাঁত",
+        organTeethDesc: "দাঁতের ব্যথা"
+      },
+      ta: {
+        langCode: "ta-IN",
+        langWord: "மொழி:",
+        langName: "தமிழ்",
+        listenText: "கேளுங்கள்",
+        stopText: "நிறுத்து",
+        patientLabel: "நோயாளி:",
+        tagline: "உங்கள் நல்வாழ்வுப் பயணம், ஒரே இடத்தில்.",
+        btnCreateAccount: "கணக்கை உருவாக்கவும்",
+        btnSignIn: "உள்நுழையவும்",
+        orText: "அல்லது",
+        createAccountTitle: "உங்கள் கணக்கை உருவாக்கவும்",
+        fullName: "முழு பெயர்",
+        username: "பயனர்பெயர் (Username)",
+        password: "கடவுச்சொல்",
+        confirmPassword: "கடவுச்சொல்லை உறுதிப்படுத்தவும்",
+        age: "வயது",
+        gender: "பாலினம்",
+        selectGender: "பாலினத்தைத் தேர்ந்தெடுக்கவும்",
+        genderMale: "ஆண்",
+        genderFemale: "பெண்",
+        genderOther: "மற்றவை",
+        genderPreferNot: "கூற விரும்பவில்லை",
+        alreadyHaveAccount: "ஏற்கனவே கணக்கு உள்ளதா?",
+        continueAbha: "ABHA மூலம் தொடரவும்",
+        welcomeBackTitle: "மீண்டும் வருக!",
+        dontHaveAccount: "கணக்கு இல்லையா?",
+        modalAbhaTitle: "ABHA ஒருங்கிணைப்பு விரைவில்",
+        modalAbhaMsg: "MediKiosk-இன் எதிர்காலப் பதிப்பில் ABHA சரிபார்ப்பு திட்டமிடப்பட்டுள்ளது.",
+        btnGotIt: "புரிந்தது",
+        dashboardHeading: "உங்களுக்கு என்ன அறிகுறிகள் உள்ளன?",
+        dashboardSub: "கீழே உள்ள உறுப்பைத் தேர்ந்தெடுக்கவும் அல்லது புதிய வழக்கைச் சேர்க்கவும்.",
+        addNewCase: "+ புதிய வழக்கு சேர்க்க",
+        btnSignOut: "வெளியேறு",
+        btnDashboard: "டாஷ்போர்டு →",
+        logTodayBtn: "இன்றைய அறிகுறிகளைப் பதிவு செய்",
+        backToCases: "← பிற வழக்குகள்",
+        // Hub items
+        hubOcrTitle: "OCR ஆவணங்கள்",
+        hubOcrDesc: "மருந்துச் சீட்டு மற்றும் பரிசோதனை அறிக்கைகள்",
+        hubCalTitle: "அறிகுறி நாள்காட்டி",
+        hubCalDesc: "காலவரிசை மற்றும் குறிப்புகள்",
+        hubAiTitle: "AI அரட்டை",
+        hubAiDesc: "ஊடாடும் AI உதவியாளர்",
+        hubNotesTitle: "மருத்துவர் குறிப்புகள்",
+        hubNotesDesc: "நேரடி மருத்துவர் குறிப்புகள்",
+        hubRemindTitle: "நினைவூட்டல்",
+        hubRemindDesc: "மருந்துகள் மற்றும் மருத்துவ சந்திப்புகள்",
+        hubProfileTitle: "வழக்கு சுயவிவரம்",
+        hubProfileDesc: "தனிப்பட்ட வரலாறு",
+        // Preset Organs
+        organEyes: "கண்கள்",
+        organEyesDesc: "பார்வை, வலி, சிவத்தல்",
+        organStomach: "வயிறு",
+        organStomachDesc: "செரிமானம், வயிற்றுவலி",
+        organHead: "தலை",
+        organHeadDesc: "தலைவலி, தலைச்சுற்றல்",
+        organLeg: "கால்",
+        organLegDesc: "மூட்டு வலி, வீக்கம்",
+        organHand: "கை",
+        organHandDesc: "மணிக்கட்டு வலி, மரத்துப்போதல்",
+        organHeart: "இதயம் / நெஞ்சு",
+        organHeartDesc: "நெஞ்சு வலி, படபடப்பு",
+        organSkin: "தோல்",
+        organSkinDesc: "அரிப்பு, ஒவ்வாமை",
+        organTeeth: "பல்",
+        organTeethDesc: "பல் வலி"
+      }
+    };
+
+    function transliterateNameTo(englishName, targetLang) {
+      if (!englishName) return '';
+      if (targetLang === 'en') return englishName;
+
+      const hiMap = {
+        'pashvi': 'पशवी', 'loona': 'लूना', 'rahul': 'राहुल', 'sharma': 'शर्मा',
+        'amit': 'अमित', 'singh': 'सिंह', 'priya': 'प्रिया', 'verma': 'वर्मा'
+      };
+      const bnMap = {
+        'pashvi': 'পশভী', 'loona': 'লুউনা', 'rahul': 'রাহুল', 'sharma': 'শর্মা',
+        'amit': 'অমিত', 'singh': 'সিংহ', 'priya': 'প্রিয়া', 'verma': 'বর্মা'
+      };
+      const taMap = {
+        'pashvi': 'பஷ்வி', 'loona': 'லூனா', 'rahul': 'ராகுல்', 'sharma': 'சர்மா',
+        'amit': 'அமித்', 'singh': 'சிங்', 'priya': 'பிரியா', 'verma': 'வர்மா'
+      };
+
+      const words = englishName.trim().split(/\s+/);
+      const dict = targetLang === 'hi' ? hiMap : targetLang === 'bn' ? bnMap : taMap;
+      return words.map(w => dict[w.toLowerCase()] || w).join(' ');
+    }
+
+    const defaultCasesTemplate = [
+      { id: 'case_eyes', key: 'organEyes', defaultName: 'Eyes', icon: '👁️', keyDesc: 'organEyesDesc', defaultDesc: 'Vision, pain, redness' },
+      { id: 'case_stomach', key: 'organStomach', defaultName: 'Stomach', icon: '🫃', keyDesc: 'organStomachDesc', defaultDesc: 'Digestive, ache, cramps' },
+      { id: 'case_head', key: 'organHead', defaultName: 'Head', icon: '🧠', keyDesc: 'organHeadDesc', defaultDesc: 'Headache, dizziness, ache' }
+    ];
+
+    const authService = {
+      createAccount(userData) {
+        const users = JSON.parse(localStorage.getItem('medikiosk_users') || '{}');
+        if (users[userData.username]) throw new Error("USER_EXISTS");
+        users[userData.username] = { ...userData, cases: [...defaultCasesTemplate], records: {}, journal: {} };
+        localStorage.setItem('medikiosk_users', JSON.stringify(users));
+        return true;
+      },
+      signIn(username, password) {
+        const users = JSON.parse(localStorage.getItem('medikiosk_users') || '{}');
+        const user = users[username];
+        if (!user) throw new Error("USER_NOT_FOUND");
+        if (user.password !== password) throw new Error("INVALID_PASSWORD");
+
+        if (!user.cases || user.cases.length === 0) {
+          user.cases = [...defaultCasesTemplate];
+        } else {
+          user.cases.forEach(c => {
+            const low = (c.name || c.defaultName || '').toLowerCase();
+            if (low.includes('eye')) { c.key = 'organEyes'; c.keyDesc = 'organEyesDesc'; }
+            else if (low.includes('stomach')) { c.key = 'organStomach'; c.keyDesc = 'organStomachDesc'; }
+            else if (low.includes('head')) { c.key = 'organHead'; c.keyDesc = 'organHeadDesc'; }
+            else if (low.includes('leg')) { c.key = 'organLeg'; c.keyDesc = 'organLegDesc'; }
+            else if (low.includes('hand') || low.includes('arm')) { c.key = 'organHand'; c.keyDesc = 'organHandDesc'; }
+            else if (low.includes('heart') || low.includes('chest')) { c.key = 'organHeart'; c.keyDesc = 'organHeartDesc'; }
+            else if (low.includes('skin')) { c.key = 'organSkin'; c.keyDesc = 'organSkinDesc'; }
+            else if (low.includes('teeth') || low.includes('dental')) { c.key = 'organTeeth'; c.keyDesc = 'organTeethDesc'; }
+          });
+        }
+
+        localStorage.setItem('medikiosk_users', JSON.stringify(users));
+        localStorage.setItem('medikiosk_session', JSON.stringify({ username: user.username, fullName: user.fullName }));
+        return user;
+      },
+      getCurrentSession() {
+        return JSON.parse(localStorage.getItem('medikiosk_session') || 'null');
+      },
+      getUserData(username) {
+        const users = JSON.parse(localStorage.getItem('medikiosk_users') || '{}');
+        return users[username];
+      },
+      updateUserData(username, updatedData) {
+        const users = JSON.parse(localStorage.getItem('medikiosk_users') || '{}');
+        users[username] = updatedData;
+        localStorage.setItem('medikiosk_users', JSON.stringify(users));
+      },
+      signOut() {
+        localStorage.removeItem('medikiosk_session');
+      }
+    };
+
+    class MediKioskApp {
+      constructor() {
+        this.currentLang = localStorage.getItem('medikiosk_lang') || 'en';
+        this.currentView = 'welcome';
+        this.activeCase = null;
+        this.isSpeaking = false;
+        this.session = authService.getCurrentSession();
+
+        if (this.session) {
+          this.currentView = 'cases-dashboard';
+        }
+
+        this.appMount = document.getElementById('appMount');
+        this.abhaModal = document.getElementById('abhaModal');
+        this.caseModal = document.getElementById('caseModal');
+        this.featureModal = document.getElementById('featureModal');
+        this.setupHeaderEvents();
+      }
+
+      setupHeaderEvents() {
+        const btn = document.getElementById('langSelectorBtn');
+        const menu = document.getElementById('langDropdown');
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          menu.classList.toggle('hidden');
+        });
+        document.addEventListener('click', () => menu.classList.add('hidden'));
+      }
+
+      handleBrandClick() {
+        this.stopSpeech();
+        if (this.session) {
+          this.navigate('cases-dashboard');
+        } else {
+          this.navigate('welcome');
+        }
+      }
+
+      setLanguage(lang) {
+        if (!translations[lang]) return;
+        this.stopSpeech();
+        this.currentLang = lang;
+        localStorage.setItem('medikiosk_lang', lang);
+        document.getElementById('currentLangLabel').innerText = translations[lang].langName;
+        document.getElementById('langWordLabel').innerText = translations[lang].langWord;
+        document.getElementById('logoutBtn').innerText = translations[lang].btnSignOut;
+        document.getElementById('langDropdown').classList.add('hidden');
+        this.updateTtsUI();
+        this.render();
+      }
+
+      navigate(view, activeCase = null) {
+        this.stopSpeech();
+        this.currentView = view;
+        if (activeCase) this.activeCase = activeCase;
+        this.render();
+      }
+
+      /* TEXT TO SPEECH (TTS) SYSTEM */
+      toggleSpeech() {
+        if (this.isSpeaking) {
+          this.stopSpeech();
+        } else {
+          this.speakCurrentPage();
+        }
+      }
+
+      stopSpeech() {
+        if ('speechSynthesis' in window) {
+          window.speechSynthesis.cancel();
+        }
+        this.isSpeaking = false;
+        this.updateTtsUI();
+      }
+
+      updateTtsUI() {
+        const t = translations[this.currentLang];
+        const icon = document.getElementById('ttsIcon');
+        const label = document.getElementById('ttsLabel');
+        const btn = document.getElementById('ttsButton');
+
+        if (this.isSpeaking) {
+          icon.innerText = "⏹️";
+          label.innerText = t.stopText;
+          btn.className = "bg-rose-50 text-rose-600 border border-rose-200 px-3 py-1.5 rounded-xl text-xs sm:text-sm font-semibold flex items-center gap-1.5 transition";
+        } else {
+          icon.innerText = "🔊";
+          label.innerText = t.listenText;
+          btn.className = "bg-slate-100 hover:bg-green-soft hover:text-green-theme border border-slate-200 text-slate-700 px-3 py-1.5 rounded-xl text-xs sm:text-sm font-semibold flex items-center gap-1.5 transition";
+        }
+      }
+
+      speakCurrentPage() {
+        if (!('speechSynthesis' in window)) {
+          alert("Text-to-speech is not supported on this browser.");
+          return;
+        }
+
+        const t = translations[this.currentLang];
+        let textToRead = "";
+
+        if (this.currentView === 'welcome') {
+          textToRead = `MediKiosk. ${t.tagline}. ${t.btnCreateAccount}, ${t.orText}, ${t.btnSignIn}.`;
+        } else if (this.currentView === 'cases-dashboard') {
+          const user = authService.getUserData(this.session.username) || { cases: defaultCasesTemplate };
+          const localizedName = this.getLocalizedPatientName();
+          const caseList = (user.cases || []).map(c => this.getCaseDisplayName(c)).join(', ');
+          textToRead = `${t.dashboardHeading}. ${t.dashboardSub}. ${t.patientLabel} ${localizedName}. Available health cases: ${caseList}.`;
+        } else if (this.currentView === 'case-intake') {
+          const user = authService.getUserData(this.session.username);
+          const activeObj = user.cases.find(c => c.id === this.activeCase) || { name: 'Health Issue' };
+          const caseName = this.getCaseDisplayName(activeObj);
+          textToRead = `${caseName} dashboard. ${this.getCaseDisplayDesc(activeObj)}. ${t.logTodayBtn}. Features available: ${t.hubOcrTitle}, ${t.hubCalTitle}, ${t.hubAiTitle}, ${t.hubNotesTitle}, ${t.hubRemindTitle}, ${t.hubProfileTitle}.`;
+        } else if (this.currentView === 'create-account') {
+          textToRead = `${t.createAccountTitle}. ${t.tagline}. Please fill full name, username, password, age, and gender.`;
+        } else if (this.currentView === 'sign-in') {
+          textToRead = `${t.welcomeBackTitle}. ${t.tagline}. Please enter your username and password to sign in.`;
+        }
+
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(textToRead);
+        utterance.lang = t.langCode;
+        utterance.rate = 0.95; // Clear and slightly measured for kiosk users
+
+        utterance.onstart = () => {
+          this.isSpeaking = true;
+          this.updateTtsUI();
+        };
+
+        utterance.onend = () => {
+          this.isSpeaking = false;
+          this.updateTtsUI();
+        };
+
+        utterance.onerror = () => {
+          this.isSpeaking = false;
+          this.updateTtsUI();
+        };
+
+        window.speechSynthesis.speak(utterance);
+      }
+
+      showAbhaModal() {
+        const t = translations[this.currentLang];
+        document.getElementById('modalAbhaTitle').innerText = t.modalAbhaTitle;
+        document.getElementById('modalAbhaDesc').innerText = t.modalAbhaMsg;
+        document.getElementById('modalBtnGotIt').innerText = t.btnGotIt;
+        this.abhaModal.classList.remove('hidden');
+      }
+
+      closeAbhaModal() {
+        this.abhaModal.classList.add('hidden');
+      }
+
+      openFeatureModule(featureKey) {
+        if (featureKey === 'chatbot') {
+          window.location.href = 'http://localhost:5173';
+          return;
+        }
+
+        if (featureKey === 'ocr') {
+          window.location.href = `http://localhost:3000?returnUrl=${encodeURIComponent(window.location.href)}`;
+          return;
+        }
+
+        
+        // Intercept OCR click to open OCR feature directly
+        if (featureKey === 'ocr') {
+          this.openOcrFeature();
+          return;
+        }
+
+        const t = translations[this.currentLang];
+        const user = authService.getUserData(this.session.username);
+        const activeObj = user.cases.find(c => c.id === this.activeCase) || { name: 'Health Issue' };
+        const organName = this.getCaseDisplayName(activeObj);
+
+        const modalConfig = {
+          ocr: {
+            icon: '📄',
+            title: `${t.hubOcrTitle} (${organName})`,
+            desc: `This module connects your GitHub OCR engine. Scan and digitize prescriptions specifically for ${organName}.`
+          },
+          calendar: {
+            icon: '📅',
+            title: `${t.hubCalTitle} (${organName})`,
+            desc: `Daily timeline and journal notepad for ${organName}. Log medicine timing and symptom updates.`
+          },
+          chatbot: {
+            icon: '💬',
+            title: `${t.hubAiTitle} (${organName})`,
+            desc: `This module connects with your teammate's AI Chatbot file. The assistant will be context-aware of ${organName} symptoms.`
+          },
+          notes: {
+            icon: '🩺',
+            title: `${t.hubNotesTitle} (${organName})`,
+            desc: `Real-time doctor notes and clinical prescription history for ${organName}.`
+          },
+          reminders: {
+            icon: '⏰',
+            title: `${t.hubRemindTitle} (${organName})`,
+            desc: `Medication schedule alarms and upcoming doctor appointments for ${organName}.`
+          },
+          profile: {
+            icon: '👤',
+            title: `${t.hubProfileTitle} (${organName})`,
+            desc: `Personal medical history and timeline analysis for ${organName}.`
+          }
+        };
+
+        const config = modalConfig[featureKey] || { icon: '🩺', title: 'Feature', desc: 'Ready for integration.' };
+        document.getElementById('modalFeatureIcon').innerText = config.icon;
+        document.getElementById('modalFeatureTitle').innerText = config.title;
+        document.getElementById('modalFeatureDesc').innerText = config.desc;
+        this.featureModal.classList.remove('hidden');
+      }
+
+      closeFeatureModal() {
+        this.featureModal.classList.add('hidden');
+      }
+
+      openOcrFeature() {
+        const user = authService.getUserData(this.session.username);
+        const activeObj = (user && user.cases) ? user.cases.find(c => c.id === this.activeCase) : null;
+        const caseTitle = activeObj ? this.getCaseDisplayName(activeObj) : "General";
+        
+        document.getElementById('ocrCaseBadge').innerText = `Dossier: ${caseTitle}`;
+        document.getElementById('ocrStatusIndicator').classList.add('hidden');
+        document.getElementById('ocrResultContainer').classList.add('hidden');
+        document.getElementById('ocrResultText').innerText = '';
+        document.getElementById('ocrInputFile').value = '';
+        document.getElementById('ocrViewModal').classList.remove('hidden');
+      }
+
+      closeOcrFeature() {
+        document.getElementById('ocrViewModal').classList.add('hidden');
+        if (this.activeCase) {
+          this.navigate('case-intake', this.activeCase);
+        } else {
+          this.navigate('cases-dashboard');
+        }
+      }
+
+      async processOcrFile(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const statusBox = document.getElementById('ocrStatusIndicator');
+        const resultContainer = document.getElementById('ocrResultContainer');
+        const resultText = document.getElementById('ocrResultText');
+
+        statusBox.classList.remove('hidden');
+        statusBox.innerText = "Processing prescription with OCR backend...";
+        resultContainer.classList.add('hidden');
+
+        const formData = new FormData();
+        formData.append('file', file);
+        if (this.activeCase) {
+          formData.append('case_id', this.activeCase);
+        }
+
+        try {
+          const response = await fetch('http://127.0.0.1:8000/api/ocr/parse', {
+            method: 'POST',
+            body: formData
+          });
+
+          if (!response.ok) {
+            throw new Error(`Server returned status ${response.status}`);
+          }
+
+          const data = await response.json();
+          statusBox.innerText = "OCR extraction completed successfully!";
+          resultContainer.classList.remove('hidden');
+          resultText.innerText = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
+        } catch (err) {
+          statusBox.innerText = `OCR Backend Error: ${err.message}. Make sure your FastAPI/Python backend is running at http://127.0.0.1:8000`;
+        }
+      }
+
+      openAddCaseModal() {
+        document.getElementById('caseModalHeading').innerText = "Add New Health Case";
+        document.getElementById('caseFormId').value = "";
+        document.getElementById('caseFormPresetKey').value = "";
+        document.getElementById('caseFormIcon').value = "🩺";
+        document.getElementById('caseFormName').value = "";
+        document.getElementById('caseFormDesc').value = "";
+        document.getElementById('casePresetSelect').value = "";
+        this.caseModal.classList.remove('hidden');
+      }
+
+      openEditCaseModal(caseId, e) {
+        if (e) e.stopPropagation();
+        const user = authService.getUserData(this.session.username);
+        const item = user.cases.find(c => c.id === caseId);
+        if (!item) return;
+
+        document.getElementById('caseModalHeading').innerText = "Edit Health Case";
+        document.getElementById('caseFormId').value = item.id;
+        document.getElementById('caseFormPresetKey').value = item.presetKey || "";
+        document.getElementById('caseFormIcon').value = item.icon || "🩺";
+        document.getElementById('caseFormName').value = this.getCaseDisplayName(item);
+        document.getElementById('caseFormDesc').value = this.getCaseDisplayDesc(item);
+        document.getElementById('casePresetSelect').value = item.presetKey || "";
+        this.caseModal.classList.remove('hidden');
+      }
+
+      closeCaseModal() {
+        this.caseModal.classList.add('hidden');
+      }
+
+      handlePresetChange(presetKey) {
+        document.getElementById('caseFormPresetKey').value = presetKey;
+        if (!presetKey) return;
+        const t = translations[this.currentLang];
+        const icons = {
+          eyes: '👁️', stomach: '🫃', head: '🧠', leg: '🦵', hand: '✋', heart: '🫀', skin: '🧴', teeth: '🦷'
+        };
+        const capitalized = presetKey.charAt(0).toUpperCase() + presetKey.slice(1);
+        const nameKey = 'organ' + capitalized;
+        const descKey = 'organ' + capitalized + 'Desc';
+
+        document.getElementById('caseFormIcon').value = icons[presetKey] || '🩺';
+        document.getElementById('caseFormName').value = t[nameKey] || capitalized;
+        document.getElementById('caseFormDesc').value = t[descKey] || 'Medical triage and follow-up';
+      }
+
+      handleSaveCase(e) {
+        e.preventDefault();
+        const caseId = document.getElementById('caseFormId').value;
+        const presetKey = document.getElementById('caseFormPresetKey').value;
+        const icon = document.getElementById('caseFormIcon').value.trim() || '🩺';
+        const name = document.getElementById('caseFormName').value.trim();
+        const desc = document.getElementById('caseFormDesc').value.trim();
+
+        const user = authService.getUserData(this.session.username);
+        if (!user.cases) user.cases = [...defaultCasesTemplate];
+
+        let key = null;
+        let keyDesc = null;
+        if (presetKey) {
+          const cap = presetKey.charAt(0).toUpperCase() + presetKey.slice(1);
+          key = 'organ' + cap;
+          keyDesc = 'organ' + cap + 'Desc';
+        }
+
+        if (caseId) {
+          const idx = user.cases.findIndex(c => c.id === caseId);
+          if (idx !== -1) {
+            user.cases[idx].name = name;
+            user.cases[idx].desc = desc;
+            user.cases[idx].icon = icon;
+            user.cases[idx].presetKey = presetKey;
+            user.cases[idx].key = key;
+            user.cases[idx].keyDesc = keyDesc;
+          }
+        } else {
+          const newId = 'case_' + Date.now();
+          user.cases.push({
+            id: newId,
+            name: name,
+            desc: desc,
+            icon: icon,
+            presetKey: presetKey,
+            key: key,
+            keyDesc: keyDesc
+          });
+        }
+
+        authService.updateUserData(this.session.username, user);
+        this.closeCaseModal();
+        this.render();
+      }
+
+      deleteCase(caseId, e) {
+        if (e) e.stopPropagation();
+        if (!confirm("Are you sure you want to delete this case dashboard?")) return;
+        const user = authService.getUserData(this.session.username);
+        user.cases = user.cases.filter(c => c.id !== caseId);
+        authService.updateUserData(this.session.username, user);
+        this.render();
+      }
+
+      getCaseDisplayName(c) {
+        const t = translations[this.currentLang];
+        if (c.key && t[c.key]) return t[c.key];
+
+        if (c.presetKey) {
+          const cap = c.presetKey.charAt(0).toUpperCase() + c.presetKey.slice(1);
+          if (t['organ' + cap]) return t['organ' + cap];
+        }
+
+        const low = (c.name || c.defaultName || '').toLowerCase();
+        if (low.includes('eye') || low === 'आँखें' || low === 'চোখ' || low === 'கண்கள்') return t.organEyes;
+        if (low.includes('stomach') || low === 'पेट' || low === 'পেট' || low === 'வயிறு') return t.organStomach;
+        if (low.includes('head') || low === 'सिर' || low === 'মাথা' || low === 'தலை') return t.organHead;
+        if (low.includes('leg') || low === 'टाँग' || low === 'পা' || low === 'கால்') return t.organLeg;
+        if (low.includes('hand') || low === 'हाथ' || low === 'হাত' || low === 'கை') return t.organHand;
+        if (low.includes('heart') || low === 'दिल' || low === 'হৃদয়' || low === 'இதயம்') return t.organHeart;
+        if (low.includes('skin') || low === 'त्वचा' || low === 'ত্বক' || low === 'தோல்') return t.organSkin;
+
+        return c.name || c.defaultName;
+      }
+
+      getCaseDisplayDesc(c) {
+        const t = translations[this.currentLang];
+        if (c.keyDesc && t[c.keyDesc]) return t[c.keyDesc];
+
+        if (c.presetKey) {
+          const cap = c.presetKey.charAt(0).toUpperCase() + c.presetKey.slice(1);
+          if (t['organ' + cap + 'Desc']) return t['organ' + cap + 'Desc'];
+        }
+
+        const low = (c.name || c.defaultName || '').toLowerCase();
+        if (low.includes('eye')) return t.organEyesDesc;
+        if (low.includes('stomach')) return t.organStomachDesc;
+        if (low.includes('head')) return t.organHeadDesc;
+        if (low.includes('leg')) return t.organLegDesc;
+        if (low.includes('hand')) return t.organHandDesc;
+        if (low.includes('heart')) return t.organHeartDesc;
+        if (low.includes('skin')) return t.organSkinDesc;
+
+        return c.desc || c.defaultDesc;
+      }
+
+      getLocalizedPatientName() {
+        if (!this.session) return '';
+        return transliterateNameTo(this.session.fullName, this.currentLang);
+      }
+
+      render() {
+        const t = translations[this.currentLang];
+        document.getElementById('currentLangLabel').innerText = t.langName;
+        document.getElementById('langWordLabel').innerText = t.langWord;
+        const logoutBtn = document.getElementById('logoutBtn');
+        logoutBtn.innerText = t.btnSignOut;
+        this.updateTtsUI();
+
+        this.appMount.innerHTML = '';
+
+        if (this.session) {
+          logoutBtn.classList.remove('hidden');
+        } else {
+          logoutBtn.classList.add('hidden');
+        }
+
+        // VIEW 1: WELCOME SCREEN
+        if (this.currentView === 'welcome') {
+          this.appMount.innerHTML = `
+            <div class="bg-white border border-slate-200 rounded-3xl shadow-sm max-w-md w-full mx-auto p-8 text-center">
+              <div class="w-14 h-14 rounded-2xl bg-green-soft text-green-theme font-bold text-2xl flex items-center justify-center mx-auto mb-4 border border-green-theme/40">
+                +
+              </div>
+              <h1 class="text-3xl font-black text-slate-900 tracking-tight">MediKiosk</h1>
+              <p class="text-slate-500 text-sm mt-2 mb-8 leading-relaxed">${t.tagline}</p>
+
+              <div class="space-y-3">
+                <button onclick="app.navigate('create-account')" class="w-full py-3 btn-green text-white font-bold rounded-2xl text-sm shadow-sm transition">
+                  ${t.btnCreateAccount}
+                </button>
+                <div class="flex items-center my-2 text-xs text-slate-400 font-semibold uppercase tracking-wider">
+                  <span class="flex-1 border-b border-slate-200"></span>
+                  <span class="px-3">${t.orText}</span>
+                  <span class="flex-1 border-b border-slate-200"></span>
+                </div>
+                <button onclick="app.navigate('sign-in')" class="w-full py-3 btn-blue text-white font-bold rounded-2xl text-sm shadow-sm transition">
+                  ${t.btnSignIn}
+                </button>
+              </div>
+            </div>
+          `;
+        }
+
+        // VIEW 2: CREATE ACCOUNT
+        else if (this.currentView === 'create-account') {
+          this.appMount.innerHTML = `
+            <div class="bg-white border border-slate-200 rounded-3xl shadow-sm max-w-md w-full mx-auto p-6 sm:p-8">
+              <h2 class="text-2xl font-black text-slate-900 text-center">${t.createAccountTitle}</h2>
+              <p class="text-xs text-slate-500 text-center mt-1 mb-6">${t.tagline}</p>
+              <div id="feedbackBox" class="hidden p-3 rounded-xl text-xs font-semibold mb-4"></div>
+
+              <form onsubmit="app.handleCreateAccount(event)" class="space-y-3.5">
+                <div>
+                  <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">${t.fullName}</label>
+                  <input type="text" id="caFullName" required class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-[#92B780] focus:outline-none" />
+                </div>
+                <div>
+                  <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">${t.username}</label>
+                  <input type="text" id="caUsername" required class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-[#92B780] focus:outline-none" />
+                </div>
+                <div>
+                  <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">${t.password}</label>
+                  <input type="password" id="caPassword" required placeholder="••••••••" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-[#92B780] focus:outline-none" />
+                </div>
+                <div>
+                  <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">${t.confirmPassword}</label>
+                  <input type="password" id="caConfirmPassword" required placeholder="••••••••" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-[#92B780] focus:outline-none" />
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                  <div>
+                    <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">${t.age}</label>
+                    <input type="number" id="caAge" min="1" max="120" required class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-[#92B780] focus:outline-none" />
+                  </div>
+                  <div>
+                    <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">${t.gender}</label>
+                    <select id="caGender" required class="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-[#92B780] focus:outline-none bg-white">
+                      <option value="">${t.selectGender}</option>
+                      <option value="Female">${t.genderFemale}</option>
+                      <option value="Male">${t.genderMale}</option>
+                      <option value="Other">${t.genderOther}</option>
+                      <option value="PreferNot">${t.genderPreferNot}</option>
+                    </select>
+                  </div>
+                </div>
+
+                <button type="submit" class="w-full mt-2 py-3 btn-green text-white font-bold rounded-xl text-sm shadow-sm transition">
+                  ${t.btnCreateAccount}
+                </button>
+              </form>
+
+              <div class="flex items-center my-4 text-xs text-slate-400 font-semibold uppercase tracking-wider">
+                <span class="flex-1 border-b border-slate-200"></span>
+                <span class="px-3">${t.orText}</span>
+                <span class="flex-1 border-b border-slate-200"></span>
+              </div>
+
+              <button onclick="app.showAbhaModal()" class="w-full py-2.5 bg-white border border-[#A1C3DE] text-slate-700 font-bold rounded-xl text-sm hover:bg-blue-soft transition">
+                ${t.continueAbha}
+              </button>
+
+              <p class="text-center text-xs text-slate-500 mt-5">
+                ${t.alreadyHaveAccount} 
+                <button onclick="app.navigate('sign-in')" class="font-bold text-green-theme hover:underline">${t.btnSignIn}</button>
+              </p>
+            </div>
+          `;
+        }
+
+        // VIEW 3: SIGN IN
+        else if (this.currentView === 'sign-in') {
+          this.appMount.innerHTML = `
+            <div class="bg-white border border-slate-200 rounded-3xl shadow-sm max-w-md w-full mx-auto p-6 sm:p-8">
+              <h2 class="text-2xl font-black text-slate-900 text-center">${t.welcomeBackTitle}</h2>
+              <p class="text-xs text-slate-500 text-center mt-1 mb-6">${t.tagline}</p>
+              <div id="feedbackBox" class="hidden p-3 rounded-xl text-xs font-semibold mb-4"></div>
+
+              <form onsubmit="app.handleSignIn(event)" class="space-y-4">
+                <div>
+                  <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">${t.username}</label>
+                  <input type="text" id="siUsername" required class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-[#92B780] focus:outline-none" />
+                </div>
+                <div>
+                  <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">${t.password}</label>
+                  <input type="password" id="siPassword" required placeholder="••••••••" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-[#92B780] focus:outline-none" />
+                </div>
+
+                <button type="submit" class="w-full py-3 btn-green text-white font-bold rounded-xl text-sm shadow-sm transition">
+                  ${t.btnSignIn}
+                </button>
+              </form>
+
+              <p class="text-center text-xs text-slate-500 mt-4">
+                ${t.dontHaveAccount} 
+                <button onclick="app.navigate('create-account')" class="font-bold text-green-theme hover:underline">${t.btnCreateAccount}</button>
+              </p>
+
+              <div class="flex items-center my-4 text-xs text-slate-400 font-semibold uppercase tracking-wider">
+                <span class="flex-1 border-b border-slate-200"></span>
+                <span class="px-3">${t.orText}</span>
+                <span class="flex-1 border-b border-slate-200"></span>
+              </div>
+
+              <button onclick="app.showAbhaModal()" class="w-full py-2.5 bg-white border border-[#A1C3DE] text-slate-700 font-bold rounded-xl text-sm hover:bg-blue-soft transition">
+                ${t.continueAbha}
+              </button>
+            </div>
+          `;
+        }
+
+        // VIEW 4: HEALTH CASES DASHBOARD
+        else if (this.currentView === 'cases-dashboard') {
+          const user = authService.getUserData(this.session.username) || { cases: defaultCasesTemplate };
+          const cases = user.cases || defaultCasesTemplate;
+          const localizedName = this.getLocalizedPatientName();
+
+          let casesGridHtml = cases.map(c => {
+            const displayName = this.getCaseDisplayName(c);
+            const displayDesc = this.getCaseDisplayDesc(c);
+
+            return `
+              <div onclick="app.openCaseIntake('${c.id}')" class="group relative p-6 bg-white border border-slate-200 hover:border-[#92B780] rounded-3xl shadow-sm hover:shadow-md transition text-center flex flex-col items-center cursor-pointer">
+                <div class="absolute top-3 right-3 flex items-center gap-1 opacity-80 group-hover:opacity-100 transition">
+                  <button title="Edit Case" onclick="app.openEditCaseModal('${c.id}', event)" class="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center text-xs">
+                    ✏️
+                  </button>
+                  <button title="Delete Case" onclick="app.deleteCase('${c.id}', event)" class="w-7 h-7 rounded-lg bg-slate-100 hover:bg-rose-100 hover:text-rose-600 text-slate-600 flex items-center justify-center text-xs">
+                    🗑️
+                  </button>
+                </div>
+
+                <div class="w-14 h-14 rounded-2xl bg-green-soft text-2xl flex items-center justify-center mb-3 group-hover:scale-105 transition-transform shadow-sm">
+                  ${c.icon || '🩺'}
+                </div>
+                <h3 class="font-bold text-slate-800 text-base">${displayName}</h3>
+                <p class="text-xs text-slate-400 mt-0.5 line-clamp-2">${displayDesc}</p>
+                
+                <span class="mt-3 text-[11px] font-bold text-green-theme bg-green-soft px-3 py-1 rounded-full border border-green-theme/30">
+                  ${t.btnDashboard}
+                </span>
+              </div>
+            `;
+          }).join('');
+
+          casesGridHtml += `
+            <div onclick="app.openAddCaseModal()" class="p-6 bg-white border-2 border-dashed border-slate-300 hover:border-[#92B780] hover:bg-green-soft/20 rounded-3xl transition text-center flex flex-col items-center justify-center cursor-pointer min-h-[190px] group">
+              <div class="w-12 h-12 rounded-2xl bg-slate-100 group-hover:bg-[#92B780] group-hover:text-white text-slate-500 text-xl flex items-center justify-center mb-2 transition shadow-sm font-bold">
+                +
+              </div>
+              <h3 class="font-bold text-slate-700 group-hover:text-slate-900 text-sm">${t.addNewCase}</h3>
+              <p class="text-[11px] text-slate-400 mt-0.5">Leg, Hand, Heart, Skin, or Custom</p>
+            </div>
+          `;
+
+          this.appMount.innerHTML = `
+            <div class="max-w-4xl mx-auto w-full">
+              <div class="text-center mb-8">
+                <h2 class="text-3xl font-extrabold text-slate-900 tracking-tight">${t.dashboardHeading}</h2>
+                <p class="text-slate-500 text-xs sm:text-sm mt-1.5 max-w-lg mx-auto">${t.dashboardSub}</p>
+                <div class="mt-3 inline-flex items-center gap-2 bg-blue-soft border border-blue-theme/40 px-3.5 py-1.5 rounded-full text-xs font-semibold text-slate-700">
+                  <span>${t.patientLabel}</span>
+                  <strong>${localizedName} (@${this.session.username})</strong>
+                </div>
+              </div>
+
+              <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-5">
+                ${casesGridHtml}
+              </div>
+            </div>
+          `;
+        }
+
+        // VIEW 5: BALANCED 6-BUTTON CASE WORKSTATION
+        else if (this.currentView === 'case-intake') {
+          const user = authService.getUserData(this.session.username);
+          const activeObj = user.cases.find(c => c.id === this.activeCase) || { name: 'Health Dossier', icon: '🩺' };
+          const caseName = this.getCaseDisplayName(activeObj);
+          const localizedName = this.getLocalizedPatientName();
+
+          this.appMount.innerHTML = `
+            <div class="w-full max-w-2xl mx-auto flex flex-col items-center">
+
+              <!-- Top Bar / Back to Cases -->
+              <div class="w-full flex items-center justify-between mb-5 px-1">
+                <button onclick="app.navigate('cases-dashboard')" class="flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-slate-900 bg-white border border-slate-200 px-3 py-1.5 rounded-xl shadow-sm transition">
+                  ${t.backToCases}
+                </button>
+                <div class="text-xs font-bold text-slate-500 bg-blue-soft px-3 py-1 rounded-full border border-blue-theme/40">
+                  ${t.patientLabel} <strong>${localizedName}</strong>
+                </div>
+              </div>
+
+              <!-- HERO STATUS BANNER -->
+              <div class="w-full bg-white border border-slate-200 rounded-3xl p-6 sm:p-7 shadow-sm text-center flex flex-col items-center mb-6">
+                
+                <div class="w-16 h-16 rounded-2xl bg-green-soft border border-green-theme/30 flex items-center justify-center text-3xl mb-3 shadow-sm">
+                  ${activeObj.icon || '🩺'}
+                </div>
+
+                <h2 class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+                  ${caseName}
+                </h2>
+                <p class="text-xs sm:text-sm text-slate-500 font-medium mt-1 max-w-sm">
+                  ${this.getCaseDisplayDesc(activeObj)}
+                </p>
+
+                <!-- Primary Action Button -->
+                <button onclick="app.openFeatureModule('calendar')" class="mt-5 w-full max-w-sm py-3 rounded-xl btn-green text-white font-bold text-sm sm:text-base shadow-sm hover:shadow transition tracking-wide">
+                  ${t.logTodayBtn}
+                </button>
+              </div>
+
+              <!-- 6-BUTTON CIRCULAR GRID -->
+              <div class="w-full bg-white border border-slate-200 rounded-3xl p-5 sm:p-7 shadow-sm">
+                <div class="grid grid-cols-3 gap-y-6 gap-x-4 justify-items-center">
+
+                  <!-- Button 1: OCR Prescriptions -->
+                  <div onclick="app.openFeatureModule('ocr')" class="flex flex-col items-center text-center cursor-pointer group w-28">
+                    <div class="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-blue-soft border border-blue-theme/60 group-hover:scale-105 group-hover:bg-[#A1C3DE] group-hover:text-white text-slate-700 flex items-center justify-center text-xl sm:text-2xl shadow-sm transition">
+                      📄
+                    </div>
+                    <span class="mt-2 text-xs font-bold text-slate-800 leading-tight">
+                      ${t.hubOcrTitle}
+                    </span>
+                    <span class="text-[10px] text-slate-500 line-clamp-2 mt-0.5 leading-snug">
+                      ${t.hubOcrDesc}
+                    </span>
+                  </div>
+
+                  <!-- Button 2: Symptom Calendar -->
+                  <div onclick="app.openFeatureModule('calendar')" class="flex flex-col items-center text-center cursor-pointer group w-28">
+                    <div class="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-green-soft border border-green-theme/60 group-hover:scale-105 group-hover:bg-[#92B780] group-hover:text-white text-slate-700 flex items-center justify-center text-xl sm:text-2xl shadow-sm transition">
+                      📅
+                    </div>
+                    <span class="mt-2 text-xs font-bold text-slate-800 leading-tight">
+                      ${t.hubCalTitle}
+                    </span>
+                    <span class="text-[10px] text-slate-500 line-clamp-2 mt-0.5 leading-snug">
+                      ${t.hubCalDesc}
+                    </span>
+                  </div>
+
+                  <!-- Button 3: AI Chatbot -->
+                  <div onclick="app.openFeatureModule('chatbot')" class="flex flex-col items-center text-center cursor-pointer group w-28">
+                    <div class="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-blue-soft border border-blue-theme/60 group-hover:scale-105 group-hover:bg-[#A1C3DE] group-hover:text-white text-slate-700 flex items-center justify-center text-xl sm:text-2xl shadow-sm transition">
+                      💬
+                    </div>
+                    <span class="mt-2 text-xs font-bold text-slate-800 leading-tight">
+                      ${t.hubAiTitle}
+                    </span>
+                    <span class="text-[10px] text-slate-500 line-clamp-2 mt-0.5 leading-snug">
+                      ${t.hubAiDesc}
+                    </span>
+                  </div>
+
+                  <!-- Button 4: Doctor's Notes -->
+                  <div onclick="app.openFeatureModule('notes')" class="flex flex-col items-center text-center cursor-pointer group w-28">
+                    <div class="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-green-soft border border-green-theme/60 group-hover:scale-105 group-hover:bg-[#92B780] group-hover:text-white text-slate-700 flex items-center justify-center text-xl sm:text-2xl shadow-sm transition">
+                      🩺
+                    </div>
+                    <span class="mt-2 text-xs font-bold text-slate-800 leading-tight">
+                      ${t.hubNotesTitle}
+                    </span>
+                    <span class="text-[10px] text-slate-500 line-clamp-2 mt-0.5 leading-snug">
+                      ${t.hubNotesDesc}
+                    </span>
+                  </div>
+
+                  <!-- Button 5: Reminders -->
+                  <div onclick="app.openFeatureModule('reminders')" class="flex flex-col items-center text-center cursor-pointer group w-28">
+                    <div class="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-blue-soft border border-blue-theme/60 group-hover:scale-105 group-hover:bg-[#A1C3DE] group-hover:text-white text-slate-700 flex items-center justify-center text-xl sm:text-2xl shadow-sm transition">
+                      ⏰
+                    </div>
+                    <span class="mt-2 text-xs font-bold text-slate-800 leading-tight">
+                      ${t.hubRemindTitle}
+                    </span>
+                    <span class="text-[10px] text-slate-500 line-clamp-2 mt-0.5 leading-snug">
+                      ${t.hubRemindDesc}
+                    </span>
+                  </div>
+
+                  <!-- Button 6: Case Profile -->
+                  <div onclick="app.openFeatureModule('profile')" class="flex flex-col items-center text-center cursor-pointer group w-28">
+                    <div class="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-green-soft border border-green-theme/60 group-hover:scale-105 group-hover:bg-[#92B780] group-hover:text-white text-slate-700 flex items-center justify-center text-xl sm:text-2xl shadow-sm transition">
+                      👤
+                    </div>
+                    <span class="mt-2 text-xs font-bold text-slate-800 leading-tight">
+                      ${t.hubProfileTitle}
+                    </span>
+                    <span class="text-[10px] text-slate-500 line-clamp-2 mt-0.5 leading-snug">
+                      ${t.hubProfileDesc}
+                    </span>
+                  </div>
+
+                </div>
+              </div>
+
+            </div>
+          `;
+        }
+      }
+
+      openCaseIntake(caseId) {
+        this.activeCase = caseId;
+        this.navigate('case-intake', caseId);
+      }
+
+      handleCreateAccount(e) {
+        e.preventDefault();
+        const t = translations[this.currentLang];
+        const fb = document.getElementById('feedbackBox');
+        const fullName = document.getElementById('caFullName').value.trim();
+        const username = document.getElementById('caUsername').value.trim();
+        const password = document.getElementById('caPassword').value;
+        const confirmPassword = document.getElementById('caConfirmPassword').value;
+        const age = document.getElementById('caAge').value.trim();
+        const gender = document.getElementById('caGender').value;
+
+        if (password !== confirmPassword) {
+          fb.className = "p-3 rounded-xl text-xs font-semibold mb-4 bg-rose-50 border border-rose-200 text-rose-700 block";
+          fb.innerText = t.errPassMatch;
+          return;
+        }
+
+        try {
+          authService.createAccount({ fullName, username, password, age, gender });
+          fb.className = "p-3 rounded-xl text-xs font-semibold mb-4 bg-green-soft border border-green-theme text-green-theme block";
+          fb.innerText = t.successCreated;
+          setTimeout(() => this.navigate('sign-in'), 1200);
+        } catch (err) {
+          fb.className = "p-3 rounded-xl text-xs font-semibold mb-4 bg-rose-50 border border-rose-200 text-rose-700 block";
+          fb.innerText = err.message === 'USER_EXISTS' ? t.errUserTaken : t.errFillAll;
+        }
+      }
+
+      handleSignIn(e) {
+        e.preventDefault();
+        const t = translations[this.currentLang];
+        const fb = document.getElementById('feedbackBox');
+        const username = document.getElementById('siUsername').value.trim();
+        const password = document.getElementById('siPassword').value;
+
+        try {
+          authService.signIn(username, password);
+          this.session = authService.getCurrentSession();
+          this.navigate('cases-dashboard');
+        } catch (err) {
+          fb.className = "p-3 rounded-xl text-xs font-semibold mb-4 bg-rose-50 border border-rose-200 text-rose-700 block";
+          fb.innerText = err.message === 'USER_NOT_FOUND' ? t.errUserNotFound : t.errIncorrectPass;
+        }
+      }
+
+      handleSignOut() {
+        this.stopSpeech();
+        authService.signOut();
+        this.session = null;
+        this.navigate('welcome');
+      }
+    }
+
+    let app;
+    window.addEventListener('DOMContentLoaded', () => {
+      app = new MediKioskApp();
+      app.render();
+    });
+  </script>
+</body>
+</html>

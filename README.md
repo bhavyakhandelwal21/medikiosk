@@ -17,8 +17,12 @@ The engine queries all previous sessions in SQLite for a given patient and merge
 * **Multimodal Intake**: Accepts conversational dialogues, typed symptoms, multiple prescription photos, lab report PDFs, and speech audio (`.mp3`, `.wav`, `.m4a`).
 * **Cumulative Synthesis**: Automatically fetches historical user records from SQLite so every new intake builds upon earlier diagnoses, timelines, and vitals.
 * **Multilingual Input & Output**: Seamlessly processes Hindi (Devanagari/Hinglish), English, and regional dialects, translating the final structured output into the user's chosen target language.
-* **Dual-Key & Multi-Model Failover**: Automatically cascades between `gemini-2.5-flash`, `gemini-1.5-flash`, and `gemini-1.5-pro` across secondary backup API keys to prevent quota errors and rate limits.
+* **Dual-Key & Multi-Model Failover**: Automatically cascades across currently supported Gemini Flash models and optional backup API keys.
 * **Secure Auth**: Implements salted bcrypt password hashing via `pwdlib[bcrypt]` and enforces unique username constraints.
+
+## Integration
+
+See [INTEGRATION.md](INTEGRATION.md) for environment setup, local startup, endpoint contracts, sample requests, and deployment guidance.
 
 ---
 

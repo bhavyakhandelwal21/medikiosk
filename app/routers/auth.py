@@ -5,6 +5,7 @@ from app.database import get_db
 from app.models import DBUser, DBIntakeSession
 from app.schemas import RegisterRequest, LoginRequest
 from app.security import hash_password, verify_password
+from app.auth_dependencies import create_access_token, require_creator
 
 router = APIRouter(prefix="/api/auth", tags=["Authentication & Creator Management"])
 
@@ -16,7 +17,7 @@ def register_user(req: RegisterRequest, db: Session = Depends(get_db)):
     new_user = DBUser(
         username=req.username,
         password_hash=hash_password(req.password),
-        full_name=req.username,
+        full_name=req.full_name.strip() if req.full_name else req.username,
         role="patient"
     )
     db.add(new_user)
@@ -26,6 +27,9 @@ def register_user(req: RegisterRequest, db: Session = Depends(get_db)):
         "message": "User registered successfully", 
         "user_id": new_user.id, 
         "username": new_user.username
+        ,"full_name": new_user.full_name,
+        "access_token": create_access_token(new_user),
+        "token_type": "bearer",
     }
 
 @router.post("/login")
@@ -38,6 +42,9 @@ def login_user(req: LoginRequest, db: Session = Depends(get_db)):
         "user_id": user.id, 
         "username": user.username, 
         "role": user.role
+        ,"full_name": user.full_name,
+        "access_token": create_access_token(user),
+        "token_type": "bearer",
     }
 
 # ==================== CREATOR INSPECTION CONTROLS ====================
@@ -52,7 +59,7 @@ def parse_extracted_data(raw_json_str: str):
         return raw_json_str
 
 @router.get("/creator/all-data")
-def get_all_patients_data(db: Session = Depends(get_db)):
+def get_all_patients_data(db: Session = Depends(get_db), _creator: DBUser = Depends(require_creator)):
     """Creator view: Fetches all registered users along with all their raw inputs, 
     scanned files, audio uploads, and complete AI extractions across the entire database."""
     users = db.query(DBUser).order_by(DBUser.created_at.desc()).all()
@@ -88,7 +95,7 @@ def get_all_patients_data(db: Session = Depends(get_db)):
     return results
 
 @router.get("/creator/user/{user_id}")
-def get_single_user_full_data(user_id: int, db: Session = Depends(get_db)):
+def get_single_user_full_data(user_id: int, db: Session = Depends(get_db), _creator: DBUser = Depends(require_creator)):
     """Creator view: Fetches the complete raw inputs, scans, audio notes, 
     and extracted clinical profiles for a single specific user ID."""
     user = db.query(DBUser).filter(DBUser.id == user_id).first()
@@ -123,7 +130,7 @@ def get_single_user_full_data(user_id: int, db: Session = Depends(get_db)):
     }
 
 @router.delete("/creator/user/{user_id}")
-def delete_user(user_id: int, db: Session = Depends(get_db)):
+def delete_user(user_id: int, db: Session = Depends(get_db), _creator: DBUser = Depends(require_creator)):
     """Creator action: Permanently deletes a user and purges all their session records."""
     user = db.query(DBUser).filter(DBUser.id == user_id).first()
     if not user:

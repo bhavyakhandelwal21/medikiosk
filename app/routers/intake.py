@@ -11,6 +11,7 @@ from app.database import get_db
 from app.models import DBUser, DBIntakeSession, DBPrescriptionDocument
 from app.schemas import TextIntakeRequest
 from app.gemini_service import compile_patient_history, generate_robust
+from app.auth_dependencies import get_current_user
 
 router = APIRouter(prefix="/api", tags=["Intake & Sessions"])
 
@@ -31,10 +32,10 @@ def get_guest_user(db: Session) -> DBUser:
     return user
 
 @router.post("/intake/text")
-def process_text_intake(req: TextIntakeRequest, db: Session = Depends(get_db)):
-    user = db.query(DBUser).filter(DBUser.id == req.user_id).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User ID not found")
+def process_text_intake(req: TextIntakeRequest, db: Session = Depends(get_db), current_user: DBUser = Depends(get_current_user)):
+    if current_user.id != req.user_id:
+        raise HTTPException(status_code=403, detail="You can only submit intake for your own account")
+    user = current_user
 
     prior_history = compile_patient_history(user.id, db)
     prompt = (
@@ -74,33 +75,55 @@ def process_text_intake(req: TextIntakeRequest, db: Session = Depends(get_db)):
 async def process_document_scans(
     user_id: Optional[int] = Form(None),
     target_language: str = Form("English"),
-    files: List[UploadFile] = File(...),
-    db: Session = Depends(get_db)
+    files: Optional[List[UploadFile]] = File(None),
+    db: Session = Depends(get_db),
+    current_user: DBUser = Depends(get_current_user),
 ):
-    user = db.query(DBUser).filter(DBUser.id == user_id).first() if user_id else get_guest_user(db)
-    if not user:
-        raise HTTPException(status_code=404, detail="User ID not found")
+    if user_id is not None and user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="You can only upload documents for your own account")
+    user = current_user
+
+    if not files:
+        stored_documents = (
+            db.query(DBPrescriptionDocument)
+            .filter(DBPrescriptionDocument.user_id == current_user.id)
+            .order_by(DBPrescriptionDocument.created_at.asc())
+            .all()
+        )
+        if not stored_documents:
+            raise HTTPException(status_code=400, detail="No stored prescriptions are available for this account.")
+    else:
+        stored_documents = []
 
     prior_history = compile_patient_history(user.id, db)
     multimodal_parts = []
     file_names = []
     uploaded_documents = []
 
-    for f in files:
-        file_names.append(f.filename)
-        file_bytes = await f.read()
-        mime = f.content_type or "image/png"
-        uploaded_documents.append({
-            "file_name": f.filename or "document",
-            "mime_type": mime,
-            "file_data": base64.b64encode(file_bytes).decode("ascii"),
-        })
+    if files:
+        document_inputs = []
+        for f in files:
+            document_inputs.append((f.filename or "document", f.content_type or "image/png", await f.read()))
+    else:
+        document_inputs = [
+            (document.file_name, document.mime_type, base64.b64decode(document.file_data))
+            for document in stored_documents
+        ]
 
-        if "pdf" in mime or f.filename.endswith(".pdf"):
+    for file_name, mime, file_bytes in document_inputs:
+        file_names.append(file_name)
+        if files:
+            uploaded_documents.append({
+                "file_name": file_name,
+                "mime_type": mime,
+                "file_data": base64.b64encode(file_bytes).decode("ascii"),
+            })
+
+        if "pdf" in mime or file_name.lower().endswith(".pdf"):
             try:
                 pdf_reader = PdfReader(io.BytesIO(file_bytes))
                 extracted_pdf_text = "\n".join([page.extract_text() or "" for page in pdf_reader.pages])
-                multimodal_parts.append(f"\n[Uploaded PDF: {f.filename}]\n{extracted_pdf_text}")
+                multimodal_parts.append(f"\n[Prescription PDF: {file_name}]\n{extracted_pdf_text}")
             except Exception:
                 multimodal_parts.append(types.Part.from_bytes(data=file_bytes, mime_type="application/pdf"))
         else:
@@ -152,14 +175,12 @@ async def process_document_scans(
     }
 
 @router.get("/prescriptions/{user_id}")
-def get_prescriptions(user_id: int, db: Session = Depends(get_db)):
-    user = db.query(DBUser).filter(DBUser.id == user_id).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User ID not found")
-
+def get_prescriptions(user_id: int, db: Session = Depends(get_db), current_user: DBUser = Depends(get_current_user)):
+    if user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="You can only access your own prescriptions")
     documents = (
         db.query(DBPrescriptionDocument)
-        .filter(DBPrescriptionDocument.user_id == user_id)
+        .filter(DBPrescriptionDocument.user_id == current_user.id)
         .order_by(DBPrescriptionDocument.created_at.desc())
         .all()
     )
@@ -176,8 +197,8 @@ def get_prescriptions(user_id: int, db: Session = Depends(get_db)):
     ]
 
 @router.get("/prescriptions")
-def get_all_prescriptions(db: Session = Depends(get_db)):
-    documents = db.query(DBPrescriptionDocument).order_by(DBPrescriptionDocument.created_at.desc()).all()
+def get_all_prescriptions(db: Session = Depends(get_db), current_user: DBUser = Depends(get_current_user)):
+    documents = db.query(DBPrescriptionDocument).filter(DBPrescriptionDocument.user_id == current_user.id).order_by(DBPrescriptionDocument.created_at.desc()).all()
     return [
         {
             "id": document.id,
@@ -191,8 +212,8 @@ def get_all_prescriptions(db: Session = Depends(get_db)):
     ]
 
 @router.delete("/prescriptions/{prescription_id}")
-def delete_prescription(prescription_id: int, db: Session = Depends(get_db)):
-    document = db.query(DBPrescriptionDocument).filter(DBPrescriptionDocument.id == prescription_id).first()
+def delete_prescription(prescription_id: int, db: Session = Depends(get_db), current_user: DBUser = Depends(get_current_user)):
+    document = db.query(DBPrescriptionDocument).filter(DBPrescriptionDocument.id == prescription_id, DBPrescriptionDocument.user_id == current_user.id).first()
     if not document:
         raise HTTPException(status_code=404, detail="Prescription not found")
 
@@ -202,14 +223,15 @@ def delete_prescription(prescription_id: int, db: Session = Depends(get_db)):
 
 @router.post("/intake/audio")
 async def process_audio_intake(
-    user_id: int = Form(...),
+    user_id: Optional[int] = Form(None),
     target_language: str = Form("English"),
     file: UploadFile = File(...),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: DBUser = Depends(get_current_user),
 ):
-    user = db.query(DBUser).filter(DBUser.id == user_id).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User ID not found")
+    if user_id is not None and user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="You can only submit audio for your own account")
+    user = current_user
 
     audio_bytes = await file.read()
     mime = file.content_type or "audio/mp3"
@@ -251,7 +273,9 @@ async def process_audio_intake(
     }
 
 @router.get("/sessions/{user_id}")
-def get_user_sessions(user_id: int, db: Session = Depends(get_db)):
+def get_user_sessions(user_id: int, db: Session = Depends(get_db), current_user: DBUser = Depends(get_current_user)):
+    if user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="You can only access your own sessions")
     sessions = (
         db.query(DBIntakeSession)
         .filter(DBIntakeSession.user_id == user_id)
