@@ -6,9 +6,7 @@
 [![SQLite](https://img.shields.io/badge/Database-SQLite%203-003B57?style=flat&logo=sqlite&logoColor=white)](https://sqlite.org)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-MediKiosk is an asynchronous clinical intake backend that synthesizes multimodal patient data—text descriptions, chat transcripts, multi-image scans of handwritten prescriptions, lab report PDFs, and audio recordings.
-
-The engine queries all previous sessions in SQLite for a given patient and merges them with new uploads, prompting Google Gemini to maintain a continuous, deduplicated medical profile and a 2-sentence clinical summary translated into any selected language.
+MediKiosk is an asynchronous clinical intake backend that synthesizes multimodal patient data—text descriptions, chat transcripts, multi-image scans of handwritten prescriptions, lab report PDFs, and audio recordings. The engine queries all previous sessions in SQLite for a given patient and merges them with new uploads, prompting Google Gemini to maintain a continuous, deduplicated medical profile and a 2-sentence clinical summary translated into any selected language.
 
 ---
 
@@ -30,25 +28,26 @@ See [INTEGRATION.md](INTEGRATION.md) for environment setup, local startup, endpo
 
 ```text
 Patient Input (Audio / Images / PDFs / Text)
-                     │
-                     ▼
-          FastAPI Gateway Endpoint
-                     │
-                     ▼
-    Fetch User's Prior Sessions from SQLite
-                     │
-                     ▼
-    Combine Past History + Incoming Input
-                     │
-                     ▼
-        Gemini Multimodal Cascade
-     (Key Rotation & Model Fallback)
-                     │
-                     ▼
-    Cumulative JSON + 2-Sentence Summary
-                     │
-                     ▼
-    Save to SQLite & Return Response
+│
+▼
+FastAPI Gateway Endpoint
+│
+▼
+Fetch User's Prior Sessions from SQLite
+│
+▼
+Combine Past History + Incoming Input
+│
+▼
+Gemini Multimodal Cascade (Key Rotation & Model Fallback)
+│
+▼
+Cumulative JSON + 2-Sentence Summary
+│
+▼
+Save to SQLite & Return Response
+```
 
+## Local setup and Git
 
-
+Install dependencies using the package manager and lockfile for the component you are running. For a pnpm workspace, run `pnpm install` at the workspace root; for an npm project, run `npm install` in that project folder. Do not commit `node_modules/` folders or ZIP archives that contain them; dependencies can be recreated from the manifests and lockfiles. Keep `.env` files with real credentials out of Git; use `.env.example` as the template.
